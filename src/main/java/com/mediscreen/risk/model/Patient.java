@@ -22,4 +22,20 @@ public class Patient {
     private String phone;
 
     private String sex;
+
+    public Patient()
+    {
+
+    }
+
+    public Patient(Integer id, String firstname, String lastname, String sex, LocalDate birthdate, String address, String phone)
+    {
+        this.id =  id;
+        this.firstname =  firstname;
+        this.lastname = lastname;
+        this.sex = sex;
+        this.address= address;
+        this.phone = phone;
+        this.birthDate = birthdate;
+    }
 }
