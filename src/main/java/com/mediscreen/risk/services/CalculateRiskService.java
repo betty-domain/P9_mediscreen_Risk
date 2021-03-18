@@ -1,5 +1,7 @@
 package com.mediscreen.risk.services;
 
+import com.mediscreen.risk.exceptions.ObjectNotFoundException;
+import com.mediscreen.risk.exceptions.RiskNotDefinedException;
 import com.mediscreen.risk.model.FactorsConst;
 import com.mediscreen.risk.model.Note;
 import com.mediscreen.risk.model.Patient;
@@ -7,6 +9,8 @@ import com.mediscreen.risk.model.Risk;
 import com.mediscreen.risk.model.RiskEnum;
 import com.mediscreen.risk.model.SexEnum;
 import com.mediscreen.risk.utils.DateUtils;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -15,6 +19,8 @@ import java.util.Locale;
 
 @Service
 public class CalculateRiskService {
+
+    private static final Logger logger = LogManager.getLogger(CalculateRiskService.class);
 
     @Autowired
     private DateUtils dateUtils;
@@ -27,27 +33,48 @@ public class CalculateRiskService {
 
     private static final String RISK_NOT_DEFINED = "Risk is not defined";
 
-    //TODO à supprimer, fonction inutile
-    private SexEnum getSex(String sex) {
-        return SexEnum.fromString(sex);
-    }
-
-    public Risk getRisk(int patientId) {
+    /**
+     * get Risk for patient with patientId
+     * @param patientId patientId
+     * @return Risk if defined
+     * @throws RiskNotDefinedException risk is not defined for patient criterias
+     * @throws ObjectNotFoundException patient was not found with patientId
+     */
+    public Risk getRisk(int patientId) throws RiskNotDefinedException, ObjectNotFoundException {
         try {
             Patient patient = patientsProxy.getPatient(patientId);
-            RiskEnum riskEnum = evaluateRisk(patient);
-
-            return new Risk(patient,dateUtils.getAge(patient.getBirthDate()),riskEnum);
-
-        } catch (Exception exception) {
-            //TODO trapper les notfoundException pour les feignClient
-
-            //TODO trapper les exceptions sur RiskNotDefined si besoin
-            return null;
+            return evaluateRisk(patient);
+        } catch (ObjectNotFoundException notFoundException) {
+            logger.debug("Patient Not Found, can not calculate risk");
+            throw notFoundException;
         }
     }
 
-    private RiskEnum evaluateRisk(Patient patient) throws Exception{
+    /**
+     * get Risk for Patient with familyName
+     * @param patientFamilyName patietn FamilyName
+     * @return Risk if defined
+     * @throws RiskNotDefinedException risk is not defined for patient criterias
+     * @throws ObjectNotFoundException patient was not found with patientId
+     */
+    public Risk getRisk(String patientFamilyName) throws RiskNotDefinedException, ObjectNotFoundException {
+        try {
+            Patient patient = patientsProxy.getPatient(patientFamilyName);
+            return  evaluateRisk(patient);
+        } catch (ObjectNotFoundException notFoundException) {
+            logger.debug("Patient Not Found, can not calculate risk");
+            throw notFoundException;
+        }
+
+    }
+
+    /**
+     * Evaluate Risk for a given Patient
+     * @param patient patient
+     * @return Risk if defined
+     * @throws RiskNotDefinedException risk was not defined for patients's criteria
+     */
+    private Risk evaluateRisk(Patient patient) throws RiskNotDefinedException {
         int age = dateUtils.getAge(patient.getBirthDate());
 
         SexEnum sex = SexEnum.fromString(patient.getSex());
@@ -55,19 +82,29 @@ public class CalculateRiskService {
         List<Note> notesForPatient = noteProxy.getNotesForPatient(patient.getId());
         long factorsNumber = countMedicalFactors(notesForPatient);
 
+        RiskEnum riskEnum = null;
+
         if (factorsNumber == 0 || factorsNumber == 1) {
-            return RiskEnum.NONE;
+            riskEnum = RiskEnum.NONE;
         } else {
             if (age > 30) {
-                return getRiskForOlderThan30(factorsNumber);
+                riskEnum = getRiskForOlderThan30(factorsNumber);
             } else {
-                return getRiskForYoungerThan30(factorsNumber, sex);
+                //TODO : on classifie les trentenaires avec les<30 ans, à valider
+                riskEnum = getRiskForYoungerThan30(factorsNumber, sex);
             }
         }
 
+        return new Risk(patient, dateUtils.getAge(patient.getBirthDate()), riskEnum);
     }
 
-    private RiskEnum getRiskForOlderThan30(long factorsNumber) throws Exception {
+    /**
+     * get Risk for patient older than 30 years
+     * @param factorsNumber number of factors found relative to patient
+     * @return RiskEnum if defined
+     * @throws RiskNotDefinedException risk was not defined for patients's criteria
+     */
+    private RiskEnum getRiskForOlderThan30(long factorsNumber) throws RiskNotDefinedException {
         if (factorsNumber == 2) {
             return RiskEnum.BORDERLINE;
         } else {
@@ -82,10 +119,16 @@ public class CalculateRiskService {
             }
         }
 
-        throw new Exception(RISK_NOT_DEFINED);
+        throw new RiskNotDefinedException(RISK_NOT_DEFINED);
     }
 
-    private RiskEnum getRiskForYoungerThan30(long factorsNumber, SexEnum sex) throws Exception {
+    /**
+     * get Risk for patient younger than 30 years
+     * @param factorsNumber number of factors found relative to patient
+     * @return RiskEnum if defined
+     * @throws RiskNotDefinedException risk was not defined for patients's criteria
+     */
+    private RiskEnum getRiskForYoungerThan30(long factorsNumber, SexEnum sex) throws RiskNotDefinedException {
         switch (sex) {
             case MEN:
                 if (factorsNumber == 3) {
@@ -110,10 +153,10 @@ public class CalculateRiskService {
                 }
                 break;
             default:
-                throw new Exception(RISK_NOT_DEFINED);
+                throw new RiskNotDefinedException(RISK_NOT_DEFINED);
         }
 
-        throw new Exception(RISK_NOT_DEFINED);
+        throw new RiskNotDefinedException(RISK_NOT_DEFINED);
     }
 
     /**
