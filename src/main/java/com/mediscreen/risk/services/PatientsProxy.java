@@ -20,6 +20,9 @@ public interface PatientsProxy {
     @GetMapping("/patient")
     Patient getPatient(@RequestParam Integer id);
 
+    @GetMapping("/patient/familyName")
+    Patient getPatient(@RequestParam String familyName);
+
     @PostMapping(value="/patient/add")
     Patient addPatient(@RequestParam String family, @RequestParam  String given, @RequestParam @DateTimeFormat(pattern ="yyyy-MM-dd") LocalDate dob, @RequestParam String sex, @RequestParam String address, @RequestParam String phone);
 
