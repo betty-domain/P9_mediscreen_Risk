@@ -9,7 +9,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 
 import java.util.List;
 
-@FeignClient(name = "mediscreen-note", url = "http://localhost:9102")
+@FeignClient(name = "mediscreen-note", url = "http://mediscreen-note:9102")
 public interface NoteProxy {
     @PostMapping(value = "/patHistory/add")
     Note addNote(@RequestParam Integer patientId, @RequestParam String note);

@@ -1,0 +1,61 @@
+version: "3"
+services:
+  mediscreen-risk:
+    image : mediscreen/risk-image
+    ports:
+      - 9103:9103
+    networks:
+      - risk_network
+    depends_on:
+      mediscreen-note:
+        condition: service_started
+      mediscreen-patient:
+        condition: service_started
+
+  mediscreen-note:
+    image: mediscreen/note-image
+    container_name: mediscreen-note-container-1
+    ports:
+      - 9102:9102
+    networks:
+      - risk_network
+    links:
+      - mymongodb
+
+  mediscreen-patient:
+    container_name: mediscreen-patient-container-1
+    image: mediscreen/patient-image
+    ports:
+      - "9101:9101"
+    networks:
+      - risk_network
+    environment:
+      WAIT_HOSTS: mysql
+    depends_on:
+      mysqldb:
+        condition: service_healthy
+
+  mysqldb:
+    container_name: mysqldb
+    image: mysql
+    networks:
+      - risk_network
+    environment:
+      - MYSQL_ROOT_PASSWORD=rootroot
+      - MYSQL_DATABASE=patient_p9
+    healthcheck:
+      test: "/usr/bin/mysql --user=root --password=rootroot --execute \"SHOW DATABASES;\""
+      interval: 2s
+      timeout: 20s
+      retries: 10
+
+  mymongodb:
+    image: mongo:latest
+    container_name: mymongodb
+    ports:
+      - 27017:27017
+    networks:
+      - risk_network
+
+networks:
+  risk_network:
