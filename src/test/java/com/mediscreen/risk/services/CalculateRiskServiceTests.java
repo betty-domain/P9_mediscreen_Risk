@@ -1,24 +1,34 @@
 package com.mediscreen.risk.services;
 
+import com.mediscreen.risk.exceptions.ObjectNotFoundException;
+import com.mediscreen.risk.exceptions.RiskNotDefinedException;
+import com.mediscreen.risk.model.FactorsConst;
 import com.mediscreen.risk.model.Note;
 import com.mediscreen.risk.model.Patient;
 import com.mediscreen.risk.model.Risk;
 import com.mediscreen.risk.model.RiskEnum;
+import com.mediscreen.risk.utils.DateUtils;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.test.mock.mockito.SpyBean;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.when;
 
 @SpringBootTest
 public class CalculateRiskServiceTests {
 
+    @SpyBean
+    DateUtils dateUtilsSpy;
 
     @MockBean
     private NoteProxy noteProxyMock;
@@ -28,6 +38,175 @@ public class CalculateRiskServiceTests {
 
     @Autowired
     private CalculateRiskService calculateRiskService;
+
+
+    String getNoteDetails(int factorsNumber)
+    {
+        StringBuilder noteDetails = new StringBuilder();
+        for (int i = 0; i < factorsNumber; i++) {
+            noteDetails.append(" ");
+            noteDetails.append(FactorsConst.getFactorsList().get(i));
+        }
+
+        return  noteDetails.toString();
+    }
+
+    @Test
+    void getRiskByPatientId_PatientNotFound()
+    {
+        Patient patient = new Patient(1,"Test","TestNone","F", LocalDate.of(1966,12,31),"1 Brookside St","100-222-3333");
+
+        given(patientsProxyMock.getPatient(patient.getId())).willThrow(new ObjectNotFoundException("Not Found Exception Message"));
+
+        assertThrows(ObjectNotFoundException.class,()->{ calculateRiskService.getRisk(patient.getId());});
+    }
+
+    @Test
+    void getRiskByFamilyName_PatientNotFound()
+    {
+        Patient patient = new Patient(1,"Test","TestNone","F", LocalDate.of(1966,12,31),"1 Brookside St","100-222-3333");
+
+        given(patientsProxyMock.getPatient(patient.getLastname())).willThrow(new ObjectNotFoundException("Not Found Exception Message"));
+
+        assertThrows(ObjectNotFoundException.class,()->{ calculateRiskService.getRisk(patient.getLastname());});
+    }
+
+    @Test
+    void getRiskByPatientId_SexUndefined_GIVEN_YoungerThan30()
+    {
+        Patient patient = new Patient(1,"Test","TestNone","A", LocalDate.of(1966,12,31),"1 Brookside St","100-222-3333");
+
+        when(patientsProxyMock.getPatient(patient.getId())).thenReturn(patient);
+        when(dateUtilsSpy.getAge(any())).thenReturn(20);
+
+        List<Note> noteList = new ArrayList<>();
+        Note note = new Note(patient.getId(),"Le patient déclare : " + getNoteDetails(5), LocalDate.now());
+        noteList.add(note);
+        when(noteProxyMock.getNotesForPatient(patient.getId())).thenReturn(noteList);
+
+
+        assertThrows(RiskNotDefinedException.class,()->{ calculateRiskService.getRisk(patient.getId());});
+    }
+
+    @Test
+    void getRisk_EARLY_ONSET_Given_OlderThan30_MoreThan8Factors()
+    {
+        Patient patient = new Patient(1,"Test","TestNone","F", LocalDate.of(1966,12,31),"1 Brookside St","100-222-3333");
+        when(patientsProxyMock.getPatient(patient.getId())).thenReturn(patient);
+        when(dateUtilsSpy.getAge(any())).thenReturn(50);
+
+        List<Note> noteList = new ArrayList<>();
+        Note note = new Note(patient.getId(),"Le patient déclare : " + getNoteDetails(10), LocalDate.now());
+        noteList.add(note);
+        when(noteProxyMock.getNotesForPatient(patient.getId())).thenReturn(noteList);
+
+        assertThat(calculateRiskService.getRisk(patient.getId()).getRiskEnum()).isEqualTo(RiskEnum.EARLY_ONSET);
+    }
+
+    @Test
+    void getRisk_DANGER_Given_OlderThan30_MoreThan6Factors()
+    {
+        Patient patient = new Patient(1,"Test","TestNone","F", LocalDate.of(1966,12,31),"1 Brookside St","100-222-3333");
+        when(patientsProxyMock.getPatient(patient.getId())).thenReturn(patient);
+        when(dateUtilsSpy.getAge(any())).thenReturn(50);
+
+        List<Note> noteList = new ArrayList<>();
+        Note note = new Note(patient.getId(),"Le patient déclare : " + getNoteDetails(6), LocalDate.now());
+        noteList.add(note);
+        when(noteProxyMock.getNotesForPatient(patient.getId())).thenReturn(noteList);
+
+        assertThat(calculateRiskService.getRisk(patient.getId()).getRiskEnum()).isEqualTo(RiskEnum.DANGER);
+    }
+
+    @Test
+    void getRisk_BORDERLINE_Given_OlderThan30_MoreThan2Factors()
+    {
+        Patient patient = new Patient(1,"Test","TestNone","F", LocalDate.of(1966,12,31),"1 Brookside St","100-222-3333");
+        when(patientsProxyMock.getPatient(patient.getId())).thenReturn(patient);
+        when(dateUtilsSpy.getAge(any())).thenReturn(50);
+
+        List<Note> noteList = new ArrayList<>();
+        Note note = new Note(patient.getId(),"Le patient déclare : " + getNoteDetails(4), LocalDate.now());
+        noteList.add(note);
+        when(noteProxyMock.getNotesForPatient(patient.getId())).thenReturn(noteList);
+
+        assertThat(calculateRiskService.getRisk(patient.getId()).getRiskEnum()).isEqualTo(RiskEnum.BORDERLINE);
+    }
+
+    @Test
+    void getRisk_BORDERLINE_Given_OlderThan30_With2Factors()
+    {
+        Patient patient = new Patient(1,"Test","TestNone","F", LocalDate.of(1966,12,31),"1 Brookside St","100-222-3333");
+        when(patientsProxyMock.getPatient(patient.getId())).thenReturn(patient);
+        when(dateUtilsSpy.getAge(any())).thenReturn(50);
+
+        List<Note> noteList = new ArrayList<>();
+        Note note = new Note(patient.getId(),"Le patient déclare : " + getNoteDetails(2), LocalDate.now());
+        noteList.add(note);
+        when(noteProxyMock.getNotesForPatient(patient.getId())).thenReturn(noteList);
+
+        assertThat(calculateRiskService.getRisk(patient.getId()).getRiskEnum()).isEqualTo(RiskEnum.BORDERLINE);
+    }
+
+    @Test
+    void getRisk_EARLY_ONSET_Given_YoungerThan30_MEN_MoreThan5Factors()
+    {
+        Patient patient = new Patient(1,"Test","TestNone","M", LocalDate.of(1966,12,31),"1 Brookside St","100-222-3333");
+        when(patientsProxyMock.getPatient(patient.getId())).thenReturn(patient);
+        when(dateUtilsSpy.getAge(any())).thenReturn(25);
+
+        List<Note> noteList = new ArrayList<>();
+        Note note = new Note(patient.getId(),"Le patient déclare : " + getNoteDetails(6), LocalDate.now());
+        noteList.add(note);
+        when(noteProxyMock.getNotesForPatient(patient.getId())).thenReturn(noteList);
+
+        assertThat(calculateRiskService.getRisk(patient.getId()).getRiskEnum()).isEqualTo(RiskEnum.EARLY_ONSET);
+    }
+
+    @Test
+    void getRisk_DANGER_Given_YoungerThan30_MEN_MoreThan3Factors()
+    {
+        Patient patient = new Patient(1,"Test","TestNone","M", LocalDate.of(1966,12,31),"1 Brookside St","100-222-3333");
+        when(patientsProxyMock.getPatient(patient.getId())).thenReturn(patient);
+        when(dateUtilsSpy.getAge(any())).thenReturn(25);
+
+        List<Note> noteList = new ArrayList<>();
+        Note note = new Note(patient.getId(),"Le patient déclare : " + getNoteDetails(3), LocalDate.now());
+        noteList.add(note);
+        when(noteProxyMock.getNotesForPatient(patient.getId())).thenReturn(noteList);
+
+        assertThat(calculateRiskService.getRisk(patient.getId()).getRiskEnum()).isEqualTo(RiskEnum.DANGER);
+    }
+
+    @Test
+    void getRisk_EARLY_ONSET_Given_YoungerThan30_WOMEN_MoreThan7Factors()
+    {
+        Patient patient = new Patient(1,"Test","TestNone","F", LocalDate.of(1966,12,31),"1 Brookside St","100-222-3333");
+        when(patientsProxyMock.getPatient(patient.getId())).thenReturn(patient);
+        when(dateUtilsSpy.getAge(any())).thenReturn(25);
+
+        List<Note> noteList = new ArrayList<>();
+        Note note = new Note(patient.getId(),"Le patient déclare : " + getNoteDetails(7), LocalDate.now());
+        noteList.add(note);
+        when(noteProxyMock.getNotesForPatient(patient.getId())).thenReturn(noteList);
+
+        assertThat(calculateRiskService.getRisk(patient.getId()).getRiskEnum()).isEqualTo(RiskEnum.EARLY_ONSET);
+    }
+
+    @Test
+    void getRisk_DANGER_Given_YoungerThan30_WOMEN_MoreThan4Factors()
+    {
+        Patient patient = new Patient(1,"Test","TestNone","F", LocalDate.of(1966,12,31),"1 Brookside St","100-222-3333");
+        when(patientsProxyMock.getPatient(patient.getId())).thenReturn(patient);
+        when(dateUtilsSpy.getAge(any())).thenReturn(25);
+
+        List<Note> noteList = new ArrayList<>();
+        Note note = new Note(patient.getId(),"Le patient déclare : " + getNoteDetails(4), LocalDate.now());
+        noteList.add(note);
+        when(noteProxyMock.getNotesForPatient(patient.getId())).thenReturn(noteList);
+
+        assertThat(calculateRiskService.getRisk(patient.getId()).getRiskEnum()).isEqualTo(RiskEnum.DANGER);
+    }
 
     @Test
     void defineRiskForTestNone()
@@ -155,6 +334,8 @@ public class CalculateRiskServiceTests {
         assertThat(risk).isNotNull();
         assertThat(risk.getRiskEnum()).isEqualTo(RiskEnum.EARLY_ONSET);
     }
+
+
 
     @Test
     void defineRiskForTestEarlyOnset_ByFamilyName()

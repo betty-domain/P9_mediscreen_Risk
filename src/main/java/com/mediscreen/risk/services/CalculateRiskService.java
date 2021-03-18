@@ -35,6 +35,7 @@ public class CalculateRiskService {
 
     /**
      * get Risk for patient with patientId
+     *
      * @param patientId patientId
      * @return Risk if defined
      * @throws RiskNotDefinedException risk is not defined for patient criterias
@@ -52,6 +53,7 @@ public class CalculateRiskService {
 
     /**
      * get Risk for Patient with familyName
+     *
      * @param patientFamilyName patietn FamilyName
      * @return Risk if defined
      * @throws RiskNotDefinedException risk is not defined for patient criterias
@@ -60,7 +62,7 @@ public class CalculateRiskService {
     public Risk getRisk(String patientFamilyName) throws RiskNotDefinedException, ObjectNotFoundException {
         try {
             Patient patient = patientsProxy.getPatient(patientFamilyName);
-            return  evaluateRisk(patient);
+            return evaluateRisk(patient);
         } catch (ObjectNotFoundException notFoundException) {
             logger.debug("Patient Not Found, can not calculate risk");
             throw notFoundException;
@@ -70,6 +72,7 @@ public class CalculateRiskService {
 
     /**
      * Evaluate Risk for a given Patient
+     *
      * @param patient patient
      * @return Risk if defined
      * @throws RiskNotDefinedException risk was not defined for patients's criteria
@@ -84,13 +87,12 @@ public class CalculateRiskService {
 
         RiskEnum riskEnum = null;
 
-        if (factorsNumber == 0 || factorsNumber == 1) {
+        if (factorsNumber <=1 ) {
             riskEnum = RiskEnum.NONE;
         } else {
-            if (age > 30) {
+            if (age >= 30) {
                 riskEnum = getRiskForOlderThan30(factorsNumber);
             } else {
-                //TODO : on classifie les trentenaires avec les<30 ans, à valider
                 riskEnum = getRiskForYoungerThan30(factorsNumber, sex);
             }
         }
@@ -100,30 +102,30 @@ public class CalculateRiskService {
 
     /**
      * get Risk for patient older than 30 years
+     *
      * @param factorsNumber number of factors found relative to patient
      * @return RiskEnum if defined
      * @throws RiskNotDefinedException risk was not defined for patients's criteria
      */
     private RiskEnum getRiskForOlderThan30(long factorsNumber) throws RiskNotDefinedException {
-        if (factorsNumber == 2) {
-            return RiskEnum.BORDERLINE;
+        if (factorsNumber >= 8) {
+            return RiskEnum.EARLY_ONSET;
         } else {
-            if (factorsNumber == 6) {
+            if (factorsNumber >= 6) {
                 return RiskEnum.DANGER;
             } else {
-                if (factorsNumber >= 8) {
-                    return RiskEnum.EARLY_ONSET;
+                if (factorsNumber >= 2) {
+                    return RiskEnum.BORDERLINE;
                 } else {
-                    //TODO : to define
+                    throw new RiskNotDefinedException(RISK_NOT_DEFINED);
                 }
             }
         }
-
-        throw new RiskNotDefinedException(RISK_NOT_DEFINED);
     }
 
     /**
      * get Risk for patient younger than 30 years
+     *
      * @param factorsNumber number of factors found relative to patient
      * @return RiskEnum if defined
      * @throws RiskNotDefinedException risk was not defined for patients's criteria
@@ -131,32 +133,28 @@ public class CalculateRiskService {
     private RiskEnum getRiskForYoungerThan30(long factorsNumber, SexEnum sex) throws RiskNotDefinedException {
         switch (sex) {
             case MEN:
-                if (factorsNumber == 3) {
-                    return RiskEnum.DANGER;
+                if (factorsNumber >= 5) {
+                    return RiskEnum.EARLY_ONSET;
                 } else {
-                    if (factorsNumber >= 5) {
-                        return RiskEnum.EARLY_ONSET;
+                    if (factorsNumber >= 3) {
+                        return RiskEnum.DANGER;
                     } else {
-                        //TODO to define
+                        return RiskEnum.NONE;
                     }
                 }
-                break;
             case WOMEN:
-                if (factorsNumber == 4) {
-                    return RiskEnum.DANGER;
+                if (factorsNumber >= 7) {
+                    return RiskEnum.EARLY_ONSET;
                 } else {
-                    if (factorsNumber >= 7) {
-                        return RiskEnum.EARLY_ONSET;
+                    if (factorsNumber >= 4) {
+                        return RiskEnum.DANGER;
                     } else {
-                        //TODO to define
+                        return RiskEnum.NONE;
                     }
                 }
-                break;
             default:
                 throw new RiskNotDefinedException(RISK_NOT_DEFINED);
         }
-
-        throw new RiskNotDefinedException(RISK_NOT_DEFINED);
     }
 
     /**

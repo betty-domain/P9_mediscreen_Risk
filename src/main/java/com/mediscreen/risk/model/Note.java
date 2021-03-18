@@ -6,12 +6,10 @@ import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.fasterxml.jackson.datatype.jsr310.deser.LocalDateDeserializer;
 import com.fasterxml.jackson.datatype.jsr310.ser.LocalDateSerializer;
 import lombok.Getter;
-import lombok.Setter;
 
 import java.time.LocalDate;
 
 @Getter
-@Setter
 public class Note {
 
     private String id;

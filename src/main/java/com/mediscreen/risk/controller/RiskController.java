@@ -1,7 +1,5 @@
 package com.mediscreen.risk.controller;
 
-import com.mediscreen.risk.exceptions.BadRequestException;
-import com.mediscreen.risk.model.Risk;
 import com.mediscreen.risk.services.CalculateRiskService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -17,28 +15,12 @@ public class RiskController {
     @GetMapping("/assess/id")
     public String getRiskForPatient(@RequestParam Integer patId)
     {
-        Risk risk = riskService.getRisk(patId);
-        if (risk!=null)
-        {
-            return risk.toString();
-        }
-        else
-        {
-            throw new BadRequestException("Can not calculate Risk");
-        }
+        return riskService.getRisk(patId).toString();
     }
 
     @GetMapping("/assess/familyName")
     public String getRiskForPatient(@RequestParam String familyName)
     {
-        Risk risk = riskService.getRisk(familyName);
-        if (risk!=null)
-        {
-            return risk.toString();
-        }
-        else
-        {
-            throw new BadRequestException("Can not calculate Risk");
-        }
+        return riskService.getRisk(familyName).toString();
     }
 }
