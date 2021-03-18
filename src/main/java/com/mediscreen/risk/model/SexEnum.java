@@ -2,7 +2,8 @@ package com.mediscreen.risk.model;
 
 public enum SexEnum {
     WOMEN("F"),
-    MEN("M");
+    MEN("M"),
+    UNDEFINED("");
 
     private String text;
 
@@ -20,6 +21,6 @@ public enum SexEnum {
                 return val;
             }
         }
-        return null;
+        return UNDEFINED;
     }
 }
