@@ -117,6 +117,7 @@ public class CalculateRiskService {
                 if (factorsNumber >= 2) {
                     return RiskEnum.BORDERLINE;
                 } else {
+                    logger.debug("Can not define risk for " + factorsNumber + " factors and older than 30");
                     throw new RiskNotDefinedException(RISK_NOT_DEFINED);
                 }
             }

@@ -25,7 +25,7 @@ public class Risk {
         strBuilder.append(patient.getLastname());
         strBuilder.append(" (age ");
         strBuilder.append(age);
-        strBuilder.append(") diabetes assessment is:");
+        strBuilder.append(") le risque de diabète est :");
         strBuilder.append(riskEnum.getText());
 
         return strBuilder.toString();
